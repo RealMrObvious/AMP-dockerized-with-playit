@@ -184,3 +184,47 @@ upgrade_instances() {
   echo "Upgrading instances..."
   run_amp_command "UpgradeAll" | consume_progress_bars
 }
+
+install_playit() {
+  if [ "${PLAYIT_SUPPORT}" != "true" ]; then
+    echo "Skipping playit installation."
+    return
+  fi
+
+  echo "Installing playit..."
+  apt-get install -y gnupg curl ca-certificates
+  curl -SsL https://packages.playit.gg/keys/playit.gpg -o /usr/share/keyrings/playit.gpg
+  curl -fsSL -o /etc/apt/sources.list.d/playit.list https://packages.playit.gg/repo-files/playit-debian.list
+  apt-get update
+  apt-get install -y playit
+}
+provision_playit() {
+  if [ "${PLAYIT_SUPPORT}" != "true" ]; then
+    return
+  fi
+  
+  if [ -f /root/.config/playit_gg/playit.toml ]; then
+    echo "Playit already provisioned, starting daemon..."
+    /opt/playit/playitd &
+    return
+  fi
+
+  echo "Generating playit claim..."
+  CLAIM_URL=$(/opt/playit/playit claim generate | tail -n1)
+  CLAIM_CODE="${CLAIM_URL##*/}"
+
+  echo "------------------------------------------------------------"
+  echo "ACTION REQUIRED: Visit the following URL to link playit:"
+  echo "https://playit.gg/claim/${CLAIM_CODE}"
+  echo "Waiting for claim to be completed..."
+  echo "------------------------------------------------------------"
+
+  SECRET=$(/opt/playit/playit claim exchange "${CLAIM_CODE}" | tail -n1)
+
+  echo "Writing playit config..."
+  mkdir -p /root/.config/playit_gg
+  printf 'secret_key = "%s"\n' "${SECRET}" > /root/.config/playit_gg/playit.toml
+
+  echo "Playit provisioned. Starting daemon..."
+  /opt/playit/playitd &
+}

@@ -55,7 +55,11 @@ else
   echo "Skipping automatic updates."
 fi
 
+install_playit
+
 start_amp
+
+provision_playit &
 
 # Sleep
 echo "AMP is now running. Logs can be viewed through AMP web UI or at ampdata/instances/Main/AMP_Logs"
