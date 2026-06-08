@@ -18,6 +18,8 @@ ENV AMP_SUPPORT_TAGS="nosupport docker community unofficial unraid"
 ENV AMP_SUPPORT_URL="https://github.com/MitchTalmadge/AMP-dockerized/"
 ENV LD_LIBRARY_PATH="./:/opt/cubecoders/amp/:/AMP/"
 
+ENV PLAYIT_SUPPORT=false
+
 ARG DEBIAN_FRONTEND=noninteractive
 
 # Initialize
@@ -225,7 +227,15 @@ RUN wget -qO - http://repo.cubecoders.com/archive.key | gpg --dearmor > /etc/apt
     /var/tmp/*
 
 # Set up environment
+# Set up environment
 COPY entrypoint /opt/entrypoint
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends dos2unix && \
+    find /opt/entrypoint -type f | xargs dos2unix && \
+    apt-get -y clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    chmod -R +x /opt/entrypoint
+
 RUN chmod -R +x /opt/entrypoint
 
 ENTRYPOINT ["/opt/entrypoint/main.sh"]
