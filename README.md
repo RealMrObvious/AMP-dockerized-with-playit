@@ -9,7 +9,7 @@
 > [!NOTE]  
 > A lack of commits & releases does not mean this project is dead. This image is effectively an "operating system" for AMP to run on. AMP itself can be updated through its web UI at any time. Infrequently, we may need to push a new image update to support a new version of AMP.
 
-# AMP-dockerized
+# AMP-dockerized (w/ Playit.gg Support)
 This repository bundles [CubeCoders AMP](https://cubecoders.com/AMP) into a Debian-based [Docker image.](https://hub.docker.com/r/mitchtalmadge/amp-dockerized)
 (`mitchtalmadge/amp-dockerized:latest`) so that you can set up game servers with ease! 
 
@@ -124,9 +124,11 @@ For example, with Minecraft, click on the "M" section, then scroll to "Minecraft
 - For `docker run`, use the following flags:
   `-p 25565:25565/tcp -p 25565:25565/udp`
 
-
 > [!IMPORTANT]
 > Make sure you are using the right protocol. If you accidentally map a TCP port for a UDP game, you won't be able to connect!
+
+> [!TIP]
+> If you are behind a NAT or don't want to forward ports on your router, see the [Playit.gg Integration](#playitgg-integration) section below for an alternative.
 
 ## Environment Variables
 
@@ -160,6 +162,11 @@ Example: `TZ=America/Denver`
 |-------------------|-------------------------------------------------------------------------------------------------|---------------|
 | `AMP_AUTO_UPDATE` | Set to `false` if you would like to disable automatic updates on container reboot. You will still be able to update AMP manually through the web UI. | `true`        |
 
+### Playit.gg
+| Name              | Description                                                                                     | Default Value |
+|-------------------|-------------------------------------------------------------------------------------------------|---------------|
+| `PLAYIT_SUPPORT`  | Set to `true` to enable the built-in [Playit.gg](https://playit.gg) tunnel agent. See the [Playit.gg Integration](#playitgg-integration) section for full setup instructions. | `false`       |
+
 By default, AMP will automatically update when this container reboots. You can update AMP using the web UI as well - AMP will alert you when an update is available through its UI. The updates to this container image are not directly tied to AMP updates. Think of this container more like an all-in-one "operating system" for AMP. New versions of this container are only necessary when AMP is not working correctly. If you would like to disable automatic updates on container reboot, you can set `AMP_AUTO_UPDATE` to `false`.
 
 ## Volumes
@@ -167,14 +174,68 @@ By default, AMP will automatically update when this container reboots. You can u
 > [!CAUTION]
 > If you do not set up a volume as described, your game data will be wiped every time the container updates.
 
-| Mount Point  | Description                                                                                                                                                                                                                  |
-|--------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `/home/amp/` | **Required!** This volume contains everything AMP needs to run. This includes all your instances, all their game & save files, the web UI sign-in info, etc. Without creating this volume, AMP would be wiped on every boot. |
+| Mount Point                    | Description                                                                                                                                                                                                                  |
+|--------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `/home/amp/`                   | **Required!** This volume contains everything AMP needs to run. This includes all your instances, all their game & save files, the web UI sign-in info, etc. Without creating this volume, AMP would be wiped on every boot. |
+| `/root/.config/playit_gg/`     | **Required if using Playit.gg.** Stores the provisioned agent secret. Without this volume, the agent will be re-provisioned on every container restart and you will need to re-claim it each time. |
+
+# Playit.gg Integration
+
+This image includes built-in support for [Playit.gg](https://playit.gg), a free tunneling service that allows players to connect to your game servers without requiring you to open ports on your router or have a public IP address.
+
+> [!NOTE]
+> Playit.gg is an optional feature. If you are already handling port forwarding yourself, you do not need to use it.
+
+## How It Works
+
+On first boot, the container will:
+
+1. Install the Playit agent automatically.
+2. Generate a claim URL and print it to the container logs.
+3. Wait for you to visit the URL and approve the agent in your browser.
+4. Write the provisioned secret to `/root/.config/playit_gg/playit.toml` and start the daemon.
+
+On subsequent boots, if the toml file exists, the daemon starts immediately without requiring any action.
+
+## Setup
+
+1. Create a free account at [playit.gg](https://playit.gg) if you don't have one.
+
+2. Enable Playit and add the config volume to your container. For Docker Compose:
+   ```yaml
+   environment:
+     - PLAYIT_SUPPORT=true
+   volumes:
+     - ./ampdata:/home/amp/.ampdata
+     - ./playit-config:/root/.config/playit_gg
+   ```
+
+3. Start the container and watch the logs for the claim URL:
+   ```sh
+   docker compose logs -f
+   ```
+   You will see something like:
+   ```
+   ------------------------------------------------------------
+   ACTION REQUIRED: Visit the following URL to link playit:
+   https://playit.gg/claim/XXXXXXXXXX
+   Waiting for claim to be completed...
+   ------------------------------------------------------------
+   ```
+
+4. Visit the URL, approve the agent, and wait for the container logs to confirm it is provisioned.
+
+5. In the Playit.gg dashboard, create tunnels for your game server ports and share the provided addresses with your players.
+
+> [!IMPORTANT]
+> You must mount `/root/.config/playit_gg/` as a persistent volume. If you skip this, the agent identity is lost on every container restart and you will need to re-claim it each time.
+
+> [!TIP]
+> The Playit.gg agent status may show as online for a few minutes after the container stops. This is normal — the dashboard polls on a delay before marking agents offline.
 
 # Advanced Configuration
 Please see the [advanced configuration wiki page](https://github.com/MitchTalmadge/AMP-dockerized/wiki/Advanced-Configuration) for more that you can do with this container.
 
 # Contributing
 
-I welcome contributors! Just open an issue first, or post in one of the contibution welcome / help wanted issues, so that we can discuss before you start coding. Thank you for helping!! 
-
+I welcome contributors! Just open an issue first, or post in one of the contribution welcome / help wanted issues, so that we can discuss before you start coding. Thank you for helping!! 
