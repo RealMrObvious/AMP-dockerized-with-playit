@@ -5,7 +5,6 @@ on:
       for_deploy:
         required: true
         type: boolean
-    secrets: {}
   workflow_dispatch:
   pull_request:
     paths:
@@ -13,20 +12,10 @@ on:
       - .dockerignore
       - entrypoint/**
       - .github/workflows/**.yml
-  push:
-    tags: [ "v*.*.*" ]
-    
-permissions:
-  contents: read
-  packages: write
-
 jobs:
   build:
     name: "Build"
     runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
-    permissions:
-      contents: read
-      packages: write
     strategy:
       matrix:
         arch: [amd64, arm64]
@@ -35,39 +24,15 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
       - name: "Set up Docker Buildx"
         uses: docker/setup-buildx-action@v3
-
-      - name: "Log in to GitHub Container Registry"
-        if: ${{ github.ref_type == 'tag' }}
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: "Extract metadata"
-        id: meta
-        if: ${{ github.ref_type == 'tag' }}
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository }}
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest
-
       - name: "Build Docker Image"
         uses: docker/build-push-action@v4
         with:
           context: .
           platforms: linux/${{ matrix.arch }}
-          tags: ${{ github.ref_type == 'tag' && steps.meta.outputs.tags || 'amp-dockerized:latest' }}
-          labels: ${{ steps.meta.outputs.labels }}
-          push: ${{ github.ref_type == 'tag' }}
-          outputs: ${{ github.ref_type != 'tag' && format('type=docker,dest=/tmp/docker-image-{0}.tar', matrix.arch) || '' }}
-
+          tags: amp-dockerized:latest
+          outputs: type=docker,dest=/tmp/docker-image-${{ matrix.arch }}.tar
       - name: "Upload Docker Image Artifact"
         if: ${{ inputs.for_deploy == true }}
         uses: actions/upload-artifact@v4
