@@ -40,7 +40,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable=${{ github.ref_type == 'tag' }}
-            type=sha,enable=${{ github.ref == 'refs/heads/master' }}
+            type=sha,prefix=,suffix=,format=short
 
       - name: Build and push
         uses: docker/build-push-action@v5
